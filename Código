@@ -1,0 +1,99 @@
+import tkinter as tk
+from tkinter import messagebox
+import requests
+from PIL import Image, ImageTk
+import io
+import urllib.parse
+
+# -------- Funções --------
+def obter_clima(cidade):
+    """Busca os dados do clima usando a API OpenWeatherMap"""
+    API_KEY = "cc14438dd4569924f68d99fd437f92e1"
+    cidade = urllib.parse.quote(cidade)
+    url = f"http://api.openweathermap.org/data/2.5/weather?q={cidade}&appid={API_KEY}&lang=pt_br&units=metric"
+
+    try:
+        requisicao = requests.get(url)
+        requisicao.raise_for_status()
+        dados = requisicao.json()
+        if dados.get("cod") != 200:
+            return None
+        return dados
+    except requests.exceptions.RequestException:
+        return "Erro ao conectar com o servidor"
+
+def pesquisar_clima():
+    """Obtém a cidade digitada, busca o clima e atualiza a interface"""
+    cidade = cidade_entry.get().strip()
+    if not cidade:
+        messagebox.showwarning("Atenção", "Digite o nome de uma cidade!")
+        return
+
+    dados_clima = obter_clima(cidade)
+
+    if dados_clima == "Erro ao conectar com o servidor":
+        resultado_label.config(text="Erro ao conectar com o servidor", fg="red")
+        temperatura_label.config(text="")
+        descricao_label.config(text="")
+        icone_label.config(image="")
+        return
+
+    if dados_clima:
+        # Extrair dados
+        temperatura = dados_clima['main']['temp']
+        descricao = dados_clima['weather'][0]['description']
+        icon_code = dados_clima['weather'][0]['icon']
+
+        # Atualizar labels
+        resultado_label.config(text=f"{cidade.capitalize()}", fg="white")
+        temperatura_label.config(text=f"Temperatura: {temperatura}°C")
+        descricao_label.config(text=f"Descrição: {descricao.capitalize()}")
+
+        # Buscar ícone do clima
+        try:
+            url_icon = f"http://openweathermap.org/img/wn/{icon_code}@2x.png"
+            resposta_icon = requests.get(url_icon)
+            imagem = Image.open(io.BytesIO(resposta_icon.content))
+            imagem = imagem.resize((100, 100), Image.ANTIALIAS)
+            imagem_tk = ImageTk.PhotoImage(imagem)
+            icone_label.config(image=imagem_tk)
+            icone_label.image = imagem_tk  # necessário para não sumir
+        except:
+            icone_label.config(image="")
+
+    else:
+        resultado_label.config(text="Cidade não encontrada", fg="red")
+        temperatura_label.config(text="")
+        descricao_label.config(text="")
+        icone_label.config(image="")
+
+# -------- Janela Principal --------
+janela = tk.Tk()
+janela.title("Painel Meteorológico")
+janela.geometry("400x500")
+janela.configure(bg="#252525")
+
+# -------- Widgets --------
+cidade_label = tk.Label(janela, text="Digite o Nome da Cidade:", bg="#252525", fg="white", font=("Helvetica", 12))
+cidade_label.pack(pady=10)
+
+cidade_entry = tk.Entry(janela, font=("Helvetica", 14))
+cidade_entry.pack(pady=5)
+
+pesquisar_btn = tk.Button(janela, text="Pesquisar Clima", font=("Helvetica", 12), command=pesquisar_clima, bg="#4CAF50", fg="white")
+pesquisar_btn.pack(pady=10)
+
+resultado_label = tk.Label(janela, text="", font=("Helvetica", 16, "bold"), bg="#252525", fg="white")
+resultado_label.pack(pady=15)
+
+icone_label = tk.Label(janela, bg="#252525")
+icone_label.pack()
+
+temperatura_label = tk.Label(janela, text="", font=("Helvetica", 14), bg="#252525", fg="white")
+temperatura_label.pack()
+
+descricao_label = tk.Label(janela, text="", font=("Helvetica", 14), bg="#252525", fg="white")
+descricao_label.pack()
+
+# -------- Loop Principal --------
+janela.mainloop()
